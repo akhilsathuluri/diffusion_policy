@@ -7,6 +7,12 @@ data_local
 .vscode
 _wandb
 
+notebooks/*.zarr.zip
+notebooks/*.zarr
+notebooks/*.ckpt
+notebooks/*.pth
+notebooks/*.mp4
+
 **/.DS_Store
 
 fuse.cfg
