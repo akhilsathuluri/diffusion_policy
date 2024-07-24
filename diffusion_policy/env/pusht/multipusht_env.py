@@ -26,7 +26,7 @@ def pymunk_to_shapely(body, shapes):
     return geom
 
 
-class PushTEnv(gym.Env):
+class MultiPushTEnv(gym.Env):
     metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 10}
     reward_range = (0.0, 1.0)
 
@@ -50,19 +50,29 @@ class PushTEnv(gym.Env):
         # legcay set_state for data compatibility
         self.legacy = legacy
 
+        # new additions for multipusht env
+        self.num_blocks = 2
+        self.num_agents = 2
+
         # agent_pos, block_pos, block_angle
         self.observation_space = spaces.Box(
-            low=np.array([0, 0, 0, 0, 0], dtype=np.float64),
-            high=np.array([ws, ws, ws, ws, np.pi * 2], dtype=np.float64),
-            shape=(5,),
+            low=np.array(
+                [0, 0] * self.num_agents + [0, 0, 0] * self.num_blocks,
+                dtype=np.float64,
+            ),
+            high=np.array(
+                [ws, ws] * self.num_agents + [ws, ws, 2 * np.pi] * self.num_blocks,
+                dtype=np.float64,
+            ),
+            shape=(2 * self.num_agents + 3 * self.num_blocks,),
             dtype=np.float64,
         )
 
         # positional goal for agent
         self.action_space = spaces.Box(
-            low=np.array([0, 0], dtype=np.float64),
-            high=np.array([ws, ws], dtype=np.float64),
-            shape=(2,),
+            low=np.array([0, 0] * self.num_agents, dtype=np.float64),
+            high=np.array([ws, ws] * self.num_agents, dtype=np.float64),
+            shape=(2 * self.num_agents,),
             dtype=np.float64,
         )
 
@@ -100,13 +110,21 @@ class PushTEnv(gym.Env):
         if state is None:
             rs = np.random.RandomState(seed=seed)
             state = np.array(
-                [
-                    rs.randint(50, 450),
-                    rs.randint(50, 450),
-                    rs.randint(100, 400),
-                    rs.randint(100, 400),
-                    rs.randn() * 2 * np.pi - np.pi,
-                ]
+                sum(
+                    [
+                        [rs.randint(50, 450), rs.randint(50, 450)]
+                        for _ in range(self.num_agents)
+                    ]
+                    + [
+                        [
+                            rs.randint(100, 400),
+                            rs.randint(100, 400),
+                            rs.randn() * 2 * np.pi - np.pi,
+                        ]
+                        for _ in range(self.num_blocks)
+                    ],
+                    [],
+                )
             )
         self._set_state(state)
 
@@ -121,25 +139,36 @@ class PushTEnv(gym.Env):
             self.latest_action = action
             for i in range(n_steps):
                 # Step PD control.
-                # self.agent.velocity = self.k_p * (act - self.agent.position)    # P control works too.
-                acceleration = self.k_p * (action - self.agent.position) + self.k_v * (
-                    Vec2d(0, 0) - self.agent.velocity
-                )
-                self.agent.velocity += acceleration * dt
+                for ii in range(self.num_agents):
+                    acceleration = self.k_p * (
+                        action[2 * ii : 2 * ii + 2] - self.agents[ii].position
+                    ) + self.k_v * (Vec2d(0, 0) - self.agents[ii].velocity)
+                    self.agents[ii].velocity += acceleration * dt
 
                 # Step physics.
                 self.space.step(dt)
 
         # compute reward
-        goal_body = self._get_goal_pose_body(self.goal_pose)
-        goal_geom = pymunk_to_shapely(goal_body, self.block.shapes)
-        block_geom = pymunk_to_shapely(self.block, self.block.shapes)
+        goal_bodies = self._get_goal_pose_bodies(self.goal_poses)
+        goal_geoms = [
+            pymunk_to_shapely(goal_bodies[ii], self.blocks[ii].shapes)
+            for ii in range(self.num_blocks)
+        ]
+        block_geoms = [
+            pymunk_to_shapely(self.blocks[ii], self.blocks[ii].shapes)
+            for ii in range(self.num_blocks)
+        ]
 
-        intersection_area = goal_geom.intersection(block_geom).area
-        goal_area = goal_geom.area
-        coverage = intersection_area / goal_area
-        reward = np.clip(coverage / self.success_threshold, 0, 1)
-        done = coverage > self.success_threshold
+        reward = 0
+        done = True
+        for ii in range(self.num_blocks):
+            block_geom = block_geoms[ii]
+            goal_geom = goal_geoms[ii]
+            intersection_area = goal_geom.intersection(block_geom).area
+            goal_area = goal_geom.area
+            coverage = intersection_area / goal_area
+            reward += np.clip(coverage / self.success_threshold, 0, 1)
+            done = done and coverage > self.success_threshold
 
         observation = self._get_obs()
         info = self._get_info()
@@ -165,31 +194,39 @@ class PushTEnv(gym.Env):
         return TeleopAgent(act)
 
     def _get_obs(self):
-        obs = np.array(
-            tuple(self.agent.position)
-            + tuple(self.block.position)
-            + (self.block.angle % (2 * np.pi),)
-        )
+        blocks_pose = np.copy(self.blocks.position)
+        for ii in range(self.num_blocks):
+            np.insert(blocks_pose, ii * 3, self.blocks.angle[ii] % (2 * np.pi))
+        obs = np.array(tuple(self.agents.position) + tuple(blocks_pose))
         return obs
 
-    def _get_goal_pose_body(self, pose):
+    def _get_goal_pose_body(self, poses):
         mass = 1
         inertia = pymunk.moment_for_box(mass, (50, 100))
-        body = pymunk.Body(mass, inertia)
-        # preserving the legacy assignment order for compatibility
-        # the order here doesn't matter somehow, maybe because CoM is aligned with body origin
-        body.position = pose[:2].tolist()
-        body.angle = pose[2]
-        return body
+        bodies = []
+        for ii in range(len(poses)):
+            body = pymunk.Body(mass, inertia)
+            # preserving the legacy assignment order for compatibility
+            # the order here dosn't matter somehow, maybe because CoM is aligned with body origin
+            body.position = poses[ii][:2].tolist()
+            body.angle = poses[ii][2]
+            bodies.append(body)
+        return bodies
 
     def _get_info(self):
         n_steps = self.sim_hz // self.control_hz
         n_contact_points_per_step = int(np.ceil(self.n_contact_points / n_steps))
+        agents_position = np.array([agent.position for agent in self.agents]).flatten()
+        agents_velocity = np.array([agent.velocity for agent in self.agents]).flatten()
+        blocks_pose = np.array(
+            [list(block.position) + [block.angle] for block in self.blocks]
+        ).flatten()
+
         info = {
-            "pos_agent": np.array(self.agent.position),
-            "vel_agent": np.array(self.agent.velocity),
-            "block_pose": np.array(list(self.block.position) + [self.block.angle]),
-            "goal_pose": self.goal_pose,
+            "pos_agents": agents_position,
+            "vel_agents": agents_velocity,
+            "block_poses": blocks_pose,
+            "goal_poses": self.goal_poses,
             "n_contacts": n_contact_points_per_step,
         }
         return info
@@ -210,14 +247,16 @@ class PushTEnv(gym.Env):
         draw_options = DrawOptions(canvas)
 
         # Draw goal pose.
-        goal_body = self._get_goal_pose_body(self.goal_pose)
-        for shape in self.block.shapes:
-            goal_points = [
-                pymunk.pygame_util.to_pygame(
-                    goal_body.local_to_world(v), draw_options.surface
-                )
-                for v in shape.get_vertices()
-            ]
+        goal_bodies = self._get_goal_pose_bodies(self.goal_poses)
+        goal_points = []
+        for goal_body in goal_bodies:
+            for shape in self.blocks[0].shapes:
+                goal_points = [
+                    pymunk.pygame_util.to_pygame(
+                        goal_body.local_to_world(v), draw_options.surface
+                    )
+                    for v in shape.get_vertices()
+                ]
             goal_points += [goal_points[0]]
             pygame.draw.polygon(canvas, self.goal_color, goal_points)
 
@@ -236,18 +275,20 @@ class PushTEnv(gym.Env):
         img = cv2.resize(img, (self.render_size, self.render_size))
         if self.render_action:
             if self.render_action and (self.latest_action is not None):
-                action = np.array(self.latest_action)
-                coord = (action / 512 * 96).astype(np.int32)
-                marker_size = int(8 / 96 * self.render_size)
-                thickness = int(1 / 96 * self.render_size)
-                cv2.drawMarker(
-                    img,
-                    coord,
-                    color=(255, 0, 0),
-                    markerType=cv2.MARKER_CROSS,
-                    markerSize=marker_size,
-                    thickness=thickness,
-                )
+                actions = np.array(self.latest_action)
+                for ii in range(self.num_agents):
+                    action = actions[2 * ii : 2 * ii + 2]
+                    coord = (action / 512 * 96).astype(np.int32)
+                    marker_size = int(8 / 96 * self.render_size)
+                    thickness = int(1 / 96 * self.render_size)
+                    cv2.drawMarker(
+                        img,
+                        coord,
+                        color=(255, 0, 0),
+                        markerType=cv2.MARKER_CROSS,
+                        markerSize=marker_size,
+                        thickness=thickness,
+                    )
         return img
 
     def close(self):
@@ -267,25 +308,29 @@ class PushTEnv(gym.Env):
     def _set_state(self, state):
         if isinstance(state, np.ndarray):
             state = state.tolist()
-        pos_agent = state[:2]
-        pos_block = state[2:4]
-        rot_block = state[4]
-        self.agent.position = pos_agent
+        pos_agents = state[: 2 * self.num_agents]
+        pose_blocks = state[2 * self.num_agents :]
+        for ii in range(self.num_agents):
+            self.agents[ii].position = pos_agents[2 * ii : 2 * ii + 2]
+
         # setting angle rotates with respect to center of mass
         # therefore will modify the geometric position
         # if not the same as CoM
         # therefore should be modified first.
         if self.legacy:
-            # for compatibility with legacy data
-            self.block.position = pos_block
-            self.block.angle = rot_block
+            # for compatiblity with legacy data
+            for ii in range(self.num_blocks):
+                self.blocks[ii].position = pose_blocks[3 * ii : 3 * ii + 2]
+                self.blocks[ii].angle = pose_blocks[ii * 3]
         else:
-            self.block.angle = rot_block
-            self.block.position = pos_block
+            for ii in range(self.num_blocks):
+                self.blocks[ii].angle = pose_blocks[ii * 3]
+                self.blocks[ii].position = pose_blocks[3 * ii : 3 * ii + 2]
 
         # Run physics to take effect
         self.space.step(1.0 / self.sim_hz)
 
+    # TODO: Left unchanged, not used?
     def _set_state_local(self, state_local):
         agent_pos_local = state_local[:2]
         block_pose_local = state_local[2:]
@@ -322,10 +367,14 @@ class PushTEnv(gym.Env):
         self.space.add(*walls)
 
         # Add agent, block, and goal zone.
-        self.agent = self.add_circle((256, 400), 15)
-        self.block = self.add_tee((256, 300), 0)
+        self.agents = [self.add_circle((256, 400), 15) for _ in range(self.num_agents)]
+        self.blocks = [self.add_tee((256, 300), 0) for _ in range(self.num_blocks)]
         self.goal_color = pygame.Color("LightGreen")
-        self.goal_pose = np.array([256, 256, np.pi / 4])  # x, y, theta (in radians)
+        self.goal_poses = np.random.uniform(
+            np.array([256, 256, np.pi / 4]) * 0.95,
+            np.array([256, 256, np.pi / 4]) * 1.05,
+            (self.num_blocks, 3),
+        )
 
         # Add collision handling
         self.collision_handeler = self.space.add_collision_handler(0, 0)
