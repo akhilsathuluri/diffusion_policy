@@ -85,9 +85,9 @@ def main(output, render_size, control_hz):
             # get action from mouse
             # None if mouse is not close to the agent
             act = agent.act(obs)
-            # if not act is None:
-            print(act)
-            if any([act[ii] is not None for ii in range(len(act))]):
+            # print(act)
+            if not act is None:
+                # if any([act[ii] is not None for ii in range(len(act))]):
                 # teleop started
                 # state dim 2+3
                 state = np.concatenate([info["pos_agents"], info["block_poses"]])
@@ -114,6 +114,7 @@ def main(output, render_size, control_hz):
             data_dict = dict()
             for key in episode[0].keys():
                 data_dict[key] = np.stack([x[key] for x in episode])
+            print(data_dict)
             replay_buffer.add_episode(data_dict, compressors="disk")
             print(f"saved seed {seed}")
         else:

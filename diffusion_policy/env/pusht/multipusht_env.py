@@ -137,10 +137,10 @@ class MultiPushTEnv(gym.Env):
         n_steps = self.sim_hz // self.control_hz
 
         for ii in range(self.num_agents):
-            if action[ii] is not None:
+            if action is not None:
+                # if action[ii] is not None:
                 self.latest_action = action
                 for i in range(n_steps):
-                    print(self.agents[ii].position)
                     acceleration = self.k_p * (
                         action[ii] - self.agents[ii].position
                     ) + self.k_v * (Vec2d(0, 0) - self.agents[ii].velocity)
@@ -169,6 +169,7 @@ class MultiPushTEnv(gym.Env):
             coverage = intersection_area / goal_area
             reward += np.clip(coverage / self.success_threshold, 0, 1)
             done = done and coverage > self.success_threshold
+            print(ii, coverage)
 
         observation = self._get_obs()
         info = self._get_info()
@@ -267,17 +268,28 @@ class MultiPushTEnv(gym.Env):
 
         # Draw goal pose.
         goal_bodies = self._get_goal_pose_bodies(self.goal_poses)
-        goal_points = []
-        for goal_body in goal_bodies:
-            for shape in self.blocks[0].shapes:
+        for ii in range(self.num_blocks):
+            for shape in self.blocks[ii].shapes:
                 goal_points = [
                     pymunk.pygame_util.to_pygame(
-                        goal_body.local_to_world(v), draw_options.surface
+                        goal_bodies[ii].local_to_world(v), draw_options.surface
                     )
                     for v in shape.get_vertices()
                 ]
-            goal_points += [goal_points[0]]
-            pygame.draw.polygon(canvas, self.goal_color, goal_points)
+                goal_points += [goal_points[0]]
+                pygame.draw.polygon(canvas, self.goal_color, goal_points)
+
+        # goal_points = []
+        # for goal_body in goal_bodies:
+        #     for shape in self.blocks[0].shapes:
+        #         goal_points = [
+        #             pymunk.pygame_util.to_pygame(
+        #                 goal_body.local_to_world(v), draw_options.surface
+        #             )
+        #             for v in shape.get_vertices()
+        #         ]
+        #     goal_points += [goal_points[0]]
+        #     pygame.draw.polygon(canvas, self.goal_color, goal_points)
 
         # Draw agent and block.
         self.space.debug_draw(draw_options)
@@ -389,11 +401,7 @@ class MultiPushTEnv(gym.Env):
         self.agents = [self.add_circle((256, 400), 15) for _ in range(self.num_agents)]
         self.blocks = [self.add_tee((256, 300), 0) for _ in range(self.num_blocks)]
         self.goal_color = pygame.Color("LightGreen")
-        self.goal_poses = np.random.uniform(
-            np.array([256, 256, np.pi / 4]) * 0.95,
-            np.array([256, 256, np.pi / 4]) * 1.05,
-            (self.num_blocks, 3),
-        )
+        self.goal_poses = np.array([[256, 250, 0], [256, 260, np.pi]])
 
         # Add collision handling
         self.collision_handeler = self.space.add_collision_handler(0, 0)
@@ -401,7 +409,7 @@ class MultiPushTEnv(gym.Env):
         self.n_contact_points = 0
 
         self.max_score = 50 * 100
-        self.success_threshold = 0.95  # 95% coverage.
+        self.success_threshold = 0.15  # 95% coverage.
 
     def _add_segment(self, a, b, radius):
         shape = pymunk.Segment(self.space.static_body, a, b, radius)
