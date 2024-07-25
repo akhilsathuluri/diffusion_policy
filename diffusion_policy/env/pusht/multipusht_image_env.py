@@ -22,7 +22,7 @@ class MultiPushTImageEnv(MultiPushTEnv):
                     low=0, high=1, shape=(3, render_size, render_size), dtype=np.float32
                 ),
                 "agent_pos": spaces.Box(
-                    low=0, high=ws, shape=(self.num_agents,), dtype=np.float32
+                    low=0, high=ws, shape=(2 * self.num_agents,), dtype=np.float32
                 ),
             }
         )
@@ -33,7 +33,7 @@ class MultiPushTImageEnv(MultiPushTEnv):
 
         agents_pos = np.array([agent.position for agent in self.agents]).flatten()
         img_obs = np.moveaxis(img.astype(np.float32) / 255, -1, 0)
-        obs = {"image": img_obs, "agents_pos": agents_pos}
+        obs = {"image": img_obs, "agent_pos": agents_pos}
 
         # draw action
         if self.latest_action is not None:

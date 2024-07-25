@@ -169,7 +169,7 @@ class MultiPushTEnv(gym.Env):
             coverage = intersection_area / goal_area
             reward += np.clip(coverage / self.success_threshold, 0, 1)
             done = done and coverage > self.success_threshold
-            print(ii, coverage)
+            # print(ii, coverage)
 
         observation = self._get_obs()
         info = self._get_info()
@@ -184,7 +184,7 @@ class MultiPushTEnv(gym.Env):
 
         def act(obs):
             # act = None
-            agent_acts = [self.agents[0].position, self.agents[1].position]
+            agent_acts = [agent.position for agent in self.agents]
             mouse_position = pymunk.pygame_util.from_pygame(
                 Vec2d(*pygame.mouse.get_pos()), self.screen
             )

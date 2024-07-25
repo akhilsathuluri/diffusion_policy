@@ -98,7 +98,7 @@ def main(output, render_size, control_hz):
                     "img": img,
                     "state": np.float32(state),
                     "keypoint": np.float32(keypoint),
-                    "action": np.float32(act),
+                    "action": np.float32(act).flatten(),
                     "n_contacts": np.float32([info["n_contacts"]]),
                 }
                 episode.append(data)

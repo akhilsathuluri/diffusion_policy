@@ -18,6 +18,7 @@ class MultiPushTImageDataset(BaseImageDataset):
     def __init__(
         self,
         zarr_path,
+        num_agents=2,
         horizon=1,
         pad_before=0,
         pad_after=0,
@@ -50,6 +51,8 @@ class MultiPushTImageDataset(BaseImageDataset):
         self.pad_before = pad_before
         self.pad_after = pad_after
 
+        self.num_agents = num_agents
+
     def get_validation_dataset(self):
         val_set = copy.copy(self)
         val_set.sampler = SequenceSampler(
@@ -65,7 +68,7 @@ class MultiPushTImageDataset(BaseImageDataset):
     def get_normalizer(self, mode="limits", **kwargs):
         data = {
             "action": self.replay_buffer["action"],
-            "agent_pos": self.replay_buffer["state"][..., :2],
+            "agent_pos": self.replay_buffer["state"][..., : 2 * self.num_agents],
         }
         normalizer = LinearNormalizer()
         normalizer.fit(data=data, last_n_dims=1, mode=mode, **kwargs)
@@ -76,7 +79,7 @@ class MultiPushTImageDataset(BaseImageDataset):
         return len(self.sampler)
 
     def _sample_to_data(self, sample):
-        agent_pos = sample["state"][:, :2].astype(
+        agent_pos = sample["state"][:, : 2 * self.num_agents].astype(
             np.float32
         )  # (agent_posx2, block_posex3)
         image = np.moveaxis(sample["img"], -1, 1) / 255
@@ -84,7 +87,7 @@ class MultiPushTImageDataset(BaseImageDataset):
         data = {
             "obs": {
                 "image": image,  # T, 3, 96, 96
-                "agent_pos": agent_pos,  # T, 2
+                "agent_pos": agent_pos,  # T, 4
             },
             "action": sample["action"].astype(np.float32),  # T, 2
         }
@@ -103,7 +106,7 @@ def test():
 
     zarr_path = os.path.expanduser(
         # "~/dev/diffusion_policy/data/pusht/pusht_cchi_v7_replay.zarr"
-        Path("../../data/multipusht/multipusht_dataset.zarr")
+        Path("../../data/multipusht/multipusht_sat_v1.zarr")
         .resolve()
         .__str__()
     )
