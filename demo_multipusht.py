@@ -1,7 +1,7 @@
 import numpy as np
 import click
 from diffusion_policy.common.replay_buffer import ReplayBuffer
-from diffusion_policy.env.pusht.pusht_keypoints_env import PushTKeypointsEnv
+from diffusion_policy.env.pusht.multipusht_keypoints_env import MultiPushTKeypointsEnv
 import pygame
 
 
@@ -28,8 +28,10 @@ def main(output, render_size, control_hz):
     replay_buffer = ReplayBuffer.create_from_path(output, mode="a")
 
     # create PushT env with keypoints
-    kp_kwargs = PushTKeypointsEnv.genenerate_keypoint_manager_params()
-    env = PushTKeypointsEnv(render_size=render_size, render_action=False, **kp_kwargs)
+    kp_kwargs = MultiPushTKeypointsEnv.genenerate_keypoint_manager_params()
+    env = MultiPushTKeypointsEnv(
+        render_size=render_size, render_action=False, **kp_kwargs
+    )
     agent = env.teleop_agent()
     clock = pygame.time.Clock()
 
@@ -83,13 +85,15 @@ def main(output, render_size, control_hz):
             # get action from mouse
             # None if mouse is not close to the agent
             act = agent.act(obs)
-            if not act is None:
+            # if not act is None:
+            print(act)
+            if any([act[ii] is not None for ii in range(len(act))]):
                 # teleop started
                 # state dim 2+3
-                state = np.concatenate([info["pos_agent"], info["block_pose"]])
+                state = np.concatenate([info["pos_agents"], info["block_poses"]])
                 # discard unused information such as visibility mask and agent pos
                 # for compatibility
-                keypoint = obs.reshape(2, -1)[0].reshape(-1, 2)[:9]
+                keypoint = obs.reshape(2, -1)[0].reshape(-1, 2)[: 9 * env.num_blocks]
                 data = {
                     "img": img,
                     "state": np.float32(state),

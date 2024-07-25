@@ -1,11 +1,13 @@
 from typing import Dict, Sequence, Union, Optional
 from gym import spaces
-from diffusion_policy.env.pusht.pusht_env import PushTEnv
-from diffusion_policy.env.pusht.pymunk_keypoint_manager import PymunkKeypointManager
+from diffusion_policy.env.pusht.multipusht_env import MultiPushTEnv
+from diffusion_policy.env.pusht.pymunk_multikeypoint_manager import (
+    PymunkMultiKeypointManager,
+)
 import numpy as np
 
 
-class PushTKeypointsEnv(PushTEnv):
+class MultiPushTKeypointsEnv(MultiPushTEnv):
     def __init__(
         self,
         legacy=False,
@@ -37,8 +39,8 @@ class PushTKeypointsEnv(PushTEnv):
             color_map = kp_kwargs["color_map"]
 
         # create observation spaces
-        Dblockkps = np.prod(local_keypoint_map["block"].shape)
-        Dagentkps = np.prod(local_keypoint_map["agent"].shape)
+        Dblockkps = np.prod(local_keypoint_map["blocks"].shape)
+        Dagentkps = np.prod(local_keypoint_map["agents"].shape)
         Dagentpos = 2
 
         Do = Dblockkps
@@ -64,23 +66,23 @@ class PushTKeypointsEnv(PushTEnv):
         self.keypoint_visible_rate = keypoint_visible_rate
         self.agent_keypoints = agent_keypoints
         self.draw_keypoints = draw_keypoints
-        self.kp_manager = PymunkKeypointManager(
+        self.kp_manager = PymunkMultiKeypointManager(
             local_keypoint_map=local_keypoint_map, color_map=color_map
         )
         self.draw_kp_map = None
 
     @classmethod
     def genenerate_keypoint_manager_params(cls):
-        env = PushTEnv()
-        kp_manager = PymunkKeypointManager.create_from_pusht_env(env)
+        env = MultiPushTEnv()
+        kp_manager = PymunkMultiKeypointManager.create_from_multipusht_env(env)
         kp_kwargs = kp_manager.kwargs
         return kp_kwargs
 
     def _get_obs(self):
         # get keypoints
-        obj_map = {"block": self.block}
+        obj_map = {"blocks": self.blocks}
         if self.agent_keypoints:
-            obj_map["agent"] = self.agent
+            obj_map["agents"] = self.agents
 
         kp_map = self.kp_manager.get_keypoints_global(pose_map=obj_map, is_obj=True)
         # python dict guerentee order of keys and values
@@ -94,9 +96,9 @@ class PushTKeypointsEnv(PushTEnv):
         # save keypoints for rendering
         vis_kps = kps.copy()
         vis_kps[~visible_kps] = 0
-        draw_kp_map = {"block": vis_kps[: len(kp_map["block"])]}
+        draw_kp_map = {"blocks": vis_kps[: len(kp_map["blocks"])]}
         if self.agent_keypoints:
-            draw_kp_map["agent"] = vis_kps[len(kp_map["block"]) :]
+            draw_kp_map["agents"] = vis_kps[len(kp_map["blocks"]) :]
         self.draw_kp_map = draw_kp_map
 
         # construct obs
@@ -104,9 +106,11 @@ class PushTKeypointsEnv(PushTEnv):
         obs_mask = kps_mask.flatten()
         if not self.agent_keypoints:
             # passing agent position when keypoints are not available
-            agent_pos = np.array(self.agent.position)
-            obs = np.concatenate([obs, agent_pos])
-            obs_mask = np.concatenate([obs_mask, np.ones((2,), dtype=bool)])
+            agents_pos = np.array([agent.position for agent in self.agents]).flatten()
+            obs = np.concatenate([obs, agents_pos])
+            obs_mask = np.concatenate(
+                [obs_mask, np.ones((2 * self.num_agents,), dtype=bool)]
+            )
 
         # obs, obs_mask
         obs = np.concatenate([obs, obs_mask.astype(obs.dtype)], axis=0)

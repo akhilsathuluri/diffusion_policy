@@ -135,17 +135,17 @@ class MultiPushTEnv(gym.Env):
         dt = 1.0 / self.sim_hz
         self.n_contact_points = 0
         n_steps = self.sim_hz // self.control_hz
-        if action is not None:
-            self.latest_action = action
-            for i in range(n_steps):
-                # Step PD control.
-                for ii in range(self.num_agents):
+
+        for ii in range(self.num_agents):
+            if action[ii] is not None:
+                self.latest_action = action
+                for i in range(n_steps):
+                    print(self.agents[ii].position)
                     acceleration = self.k_p * (
-                        action[2 * ii : 2 * ii + 2] - self.agents[ii].position
+                        action[ii] - self.agents[ii].position
                     ) + self.k_v * (Vec2d(0, 0) - self.agents[ii].velocity)
                     self.agents[ii].velocity += acceleration * dt
 
-                # Step physics.
                 self.space.step(dt)
 
         # compute reward
@@ -182,14 +182,33 @@ class MultiPushTEnv(gym.Env):
         TeleopAgent = collections.namedtuple("TeleopAgent", ["act"])
 
         def act(obs):
-            act = None
+            # act = None
+            agent_acts = [self.agents[0].position, self.agents[1].position]
             mouse_position = pymunk.pygame_util.from_pygame(
                 Vec2d(*pygame.mouse.get_pos()), self.screen
             )
-            if self.teleop or (mouse_position - self.agent.position).length < 30:
-                self.teleop = True
-                act = mouse_position
-            return act
+
+            # TODO: HARD CODED FOR TWO AGENTS!!!
+            if pygame.mouse.get_pressed()[0]:
+                if (
+                    self.teleop
+                    or (mouse_position - self.agents[0].position).length < 30
+                ):
+                    self.teleop = True
+                    agent_acts[0] = mouse_position
+                    return agent_acts
+
+            if pygame.mouse.get_pressed()[2]:
+                if (
+                    self.teleop
+                    or (mouse_position - self.agents[1].position).length < 30
+                ):
+                    self.teleop = True
+                    agent_acts[1] = mouse_position
+                    return agent_acts
+            else:
+                self.teleop = False
+                return agent_acts
 
         return TeleopAgent(act)
 
@@ -200,7 +219,7 @@ class MultiPushTEnv(gym.Env):
         obs = np.array(tuple(self.agents.position) + tuple(blocks_pose))
         return obs
 
-    def _get_goal_pose_body(self, poses):
+    def _get_goal_pose_bodies(self, poses):
         mass = 1
         inertia = pymunk.moment_for_box(mass, (50, 100))
         bodies = []
