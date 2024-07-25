@@ -246,7 +246,7 @@ class MultiPushTEnv(gym.Env):
             "pos_agents": agents_position,
             "vel_agents": agents_velocity,
             "block_poses": blocks_pose,
-            "goal_poses": self.goal_poses,
+            "goal_poses": self.goal_poses.flatten(),
             "n_contacts": n_contact_points_per_step,
         }
         return info
