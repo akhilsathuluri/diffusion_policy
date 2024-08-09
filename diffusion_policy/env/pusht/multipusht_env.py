@@ -277,7 +277,7 @@ class MultiPushTEnv(gym.Env):
                     for v in shape.get_vertices()
                 ]
                 goal_points += [goal_points[0]]
-                pygame.draw.polygon(canvas, self.goal_color, goal_points)
+                pygame.draw.polygon(canvas, self.goal_color[ii], goal_points)
 
         # goal_points = []
         # for goal_body in goal_bodies:
@@ -398,10 +398,14 @@ class MultiPushTEnv(gym.Env):
         self.space.add(*walls)
 
         # Add agent, block, and goal zone.
-        self.agents = [self.add_circle((256, 400), 15) for _ in range(self.num_agents)]
-        self.blocks = [self.add_tee((256, 300), 0) for _ in range(self.num_blocks)]
-        self.goal_color = pygame.Color("LightGreen")
-        self.goal_poses = np.array([[256, 250, 0], [256, 260, np.pi]])
+        self.agents = [
+            self.add_circle((256, 400), 15, ii=ii) for ii in range(self.num_agents)
+        ]
+        self.blocks = [
+            self.add_tee((256, 300), 0, ii=ii) for ii in range(self.num_blocks)
+        ]
+        self.goal_color = [pygame.Color("LightGreen"), pygame.Color("DarkGreen")]
+        self.goal_poses = np.array([[256, 250, np.pi / 4], [256, 260, 5 * np.pi / 4]])
 
         # Add collision handling
         self.collision_handeler = self.space.add_collision_handler(0, 0)
@@ -409,7 +413,7 @@ class MultiPushTEnv(gym.Env):
         self.n_contact_points = 0
 
         self.max_score = 50 * 100
-        self.success_threshold = 0.15  # 95% coverage.
+        self.success_threshold = 0.85  # 95% coverage.
 
     def _add_segment(self, a, b, radius):
         shape = pymunk.Segment(self.space.static_body, a, b, radius)
@@ -418,12 +422,14 @@ class MultiPushTEnv(gym.Env):
         )  # https://htmlcolorcodes.com/color-names
         return shape
 
-    def add_circle(self, position, radius):
+    def add_circle(self, position, radius, ii):
         body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
         body.position = position
         body.friction = 1
         shape = pymunk.Circle(body, radius)
-        shape.color = pygame.Color("RoyalBlue")
+        # shape.color = pygame.Color("RoyalBlue")
+        color = ["LightBlue", "DarkBlue"]
+        shape.color = pygame.Color(color[ii])
         self.space.add(body, shape)
         return body
 
@@ -441,8 +447,9 @@ class MultiPushTEnv(gym.Env):
         self,
         position,
         angle,
+        ii,
         scale=30,
-        color="LightSlateGray",
+        color=["LightSlateGray", "DarkSlateGray"],
         mask=pymunk.ShapeFilter.ALL_MASKS(),
     ):
         mass = 1
@@ -464,8 +471,8 @@ class MultiPushTEnv(gym.Env):
         body = pymunk.Body(mass, inertia1 + inertia2)
         shape1 = pymunk.Poly(body, vertices1)
         shape2 = pymunk.Poly(body, vertices2)
-        shape1.color = pygame.Color(color)
-        shape2.color = pygame.Color(color)
+        shape1.color = pygame.Color(color[ii])
+        shape2.color = pygame.Color(color[ii])
         shape1.filter = pymunk.ShapeFilter(mask=mask)
         shape2.filter = pymunk.ShapeFilter(mask=mask)
         body.center_of_gravity = (

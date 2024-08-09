@@ -546,7 +546,8 @@ class PushTEnv(gym.Env):
         self.agent = self.add_circle((256, 400), 15)
         self.block = self.add_tee((256, 300), 0)
         self.goal_color = pygame.Color("LightGreen")
-        self.goal_pose = np.array([256, 256, np.pi / 4])  # x, y, theta (in radians)
+        # self.goal_pose = np.array([256, 256, np.pi / 4])  # x, y, theta (in radians)
+        self.goal_pose = np.array([256, 256, 0])  # x, y, theta (in radians)
 
         # Add collision handeling
         self.collision_handeler = self.space.add_collision_handler(0, 0)
@@ -1386,7 +1387,8 @@ noise_scheduler = DDPMScheduler(
 )
 
 # device transfer
-device = torch.device("cuda")
+# device = torch.device("cuda")
+device = torch.device("cpu")
 _ = nets.to(device)
 
 # %%
@@ -1492,7 +1494,8 @@ if load_pretrained:
         id = "1XKpfNSlwYMGaF5CncoFaLKCDTWoLAHf1&confirm=t"
         gdown.download(id=id, output=ckpt_path, quiet=False)
 
-    state_dict = torch.load(ckpt_path, map_location="cuda")
+    # state_dict = torch.load(ckpt_path, map_location="cuda")
+    state_dict = torch.load(ckpt_path, map_location="cpu")
     ema_nets = nets
     ema_nets.load_state_dict(state_dict)
     print("Pretrained weights loaded.")

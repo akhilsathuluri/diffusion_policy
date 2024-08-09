@@ -65,13 +65,13 @@ class PymunkMultiKeypointManager:
             objs = None
             if name == "agents":
                 for ii in range(self.num_agents):
-                    self.agents.append(self.add_circle((256, 400), 15))
+                    self.agents.append(self.add_circle((256, 400), 15, ii))
                 objs = self.agents
                 n_kps = n_agent_kps * self.num_agents
 
             else:
                 for ii in range(self.num_blocks):
-                    self.blocks.append(self.add_tee((256, 300), 0))
+                    self.blocks.append(self.add_tee((256, 300), 0, ii))
                 objs = self.blocks
                 n_kps = n_block_kps * self.num_blocks
 

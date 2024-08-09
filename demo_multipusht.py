@@ -114,7 +114,6 @@ def main(output, render_size, control_hz):
             data_dict = dict()
             for key in episode[0].keys():
                 data_dict[key] = np.stack([x[key] for x in episode])
-            print(data_dict)
             replay_buffer.add_episode(data_dict, compressors="disk")
             print(f"saved seed {seed}")
         else:
