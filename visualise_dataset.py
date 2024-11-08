@@ -43,7 +43,10 @@ def to_hwc_uint8_numpy(chw_float32_torch: torch.Tensor) -> np.ndarray:
 # %%
 # get the length of the largest episode
 dataset = PushTImageDataset(
-    Path("./data/pusht/pusht_cchi_v7_replay.zarr").resolve().__str__(), horizon=1
+    # Path("./data/pusht/pusht_cchi_v7_replay.zarr").resolve().__str__(),
+    # Path("./data/pusht/pusht_sat_v0_replay.zarr").resolve().__str__(),
+    Path("./data/pusht/pusht_sat_v0_one_distractor_replay.zarr").resolve().__str__(),
+    horizon=1,
 )
 
 # %%
@@ -53,8 +56,11 @@ dataloader = torch.utils.data.DataLoader(
     dataset, num_workers=8, batch_size=32, sampler=episode_sampler
 )
 # %% Troubleshooting
+
 bla = next(iter(dataloader))
 len(bla["action"])
+batch = bla
+ii = 0
 
 # %%
 
@@ -63,7 +69,12 @@ frame_index = 0
 for batch in tqdm(dataloader, total=len(dataloader)):
     for ii in range(len(batch["action"])):
         # rr.set_time_sequence("frame_index", ii)
-        rr.log("image", rr.Image(to_hwc_uint8_numpy(batch["obs"]["image"][ii][0])))
+        rr.log(
+            "image",
+            rr.Image(
+                to_hwc_uint8_numpy(batch["obs"]["image"][ii][0].to(torch.float32))
+            ),
+        )
         for dim_idx, val in enumerate(batch["action"][ii][0]):
             rr.log(f"action/{dim_idx}", rr.Scalar(val.item()))
         for dim_idx, val in enumerate(batch["obs"]["agent_pos"][ii][0]):
