@@ -28,7 +28,7 @@ def main(checkpoint, output_dir, num_agents):
     # checkpoint = 'data/outputs/2024.11.05/21.22.21_train_diffusion_unet_hybrid_pusht_image/checkpoints/latest.ckpt'
     # trained on my demos
     checkpoint='data/outputs/2024.11.07/03.21.31_train_diffusion_unet_hybrid_pusht_image/checkpoints/latest.ckpt'
-    output_dir = 'data/pusht_eval_output_vis_two_agent'
+    output_dir = 'data/pusht_eval_output_vis_two_active_agents'
     if os.path.exists(output_dir):
         click.confirm(f"Output path {output_dir} already exists! Overwrite?", abort=True)
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)

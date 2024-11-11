@@ -17,6 +17,8 @@ from diffusion_policy.policy.base_image_policy import BaseImagePolicy
 from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.env_runner.base_image_runner import BaseImageRunner
 
+from copy import deepcopy as pycopy
+
 class PushTImageRunnerTwoAgents(BaseImageRunner):
     def __init__(self,
             output_dir,
@@ -175,12 +177,13 @@ class PushTImageRunnerTwoAgents(BaseImageRunner):
 
             # start rollout
             obs = env.reset()
+
             # split obs for both the agents
-            # TODO: later copy the obs and replace the size per agent
-            obs['agent_pos'] = obs['agent_pos'][:,:,:2]
+            obs1 = pycopy(obs)
+            obs2 = pycopy(obs)
+            obs1['agent_pos'] = obs1['agent_pos'][:,:,:2]
+            obs2['agent_pos'] = obs2['agent_pos'][:,:,2:]
             
-            # ignore the second observation for now
-            # obs2 = obs['agent_pos'][:,:,2:]
             past_action = None
             policy.reset()
 
@@ -189,36 +192,49 @@ class PushTImageRunnerTwoAgents(BaseImageRunner):
             done = False
             while not done:
                 # create obs dict
-                np_obs_dict = dict(obs)
-                if self.past_action and (past_action is not None):
-                    # TODO: not tested
-                    np_obs_dict['past_action'] = past_action[
-                        :,-(self.n_obs_steps-1):].astype(np.float32)
+                np_obs_dict1 = dict(obs1)
+                np_obs_dict2 = dict(obs2)
+                # if self.past_action and (past_action is not None):
+                #     # TODO: not tested
+                #     np_obs_dict['past_action'] = past_action[
+                #         :,-(self.n_obs_steps-1):].astype(np.float32)
                 
                 # device transfer
                 # print(np_obs_dict)
                 # print(np_obs_dict['agent_pos'])
-                obs_dict = dict_apply(np_obs_dict, 
+                obs_dict1 = dict_apply(np_obs_dict1, 
+                    lambda x: torch.from_numpy(x).to(
+                        device=device))
+                obs_dict2 = dict_apply(np_obs_dict2, 
                     lambda x: torch.from_numpy(x).to(
                         device=device))
 
                 # run policy
                 with torch.no_grad():
-                    action_dict = policy.predict_action(obs_dict)
+                    action_dict1 = policy.predict_action(obs_dict1)
+                    action_dict2 = policy.predict_action(obs_dict2)
 
                 # device_transfer
-                np_action_dict = dict_apply(action_dict,
+                np_action_dict1 = dict_apply(action_dict1,
+                    lambda x: x.detach().to('cpu').numpy())
+                np_action_dict2 = dict_apply(action_dict2,
                     lambda x: x.detach().to('cpu').numpy())
 
-                action = np_action_dict['action']
+                action1 = np_action_dict1['action']
+                action2 = np_action_dict2['action']
                 
                 # TODO: Take no action for the second agent for now
-                action = np.concatenate([action, np.zeros_like(action)], axis=2)
+                # action = np.concatenate([action, np.zeros_like(action)], axis=2)
+                action = np.concatenate((action1, action2), axis=2)
 
                 # step env
                 obs, reward, done, info = env.step(action)
                 # TODO: Split the observation again
-                obs['agent_pos'] = obs['agent_pos'][:,:,:2]
+                # obs['agent_pos'] = obs['agent_pos'][:,:,:2]
+                obs1 = pycopy(obs)
+                obs2 = pycopy(obs)
+                obs1['agent_pos'] = obs1['agent_pos'][:,:,:2]
+                obs2['agent_pos'] = obs2['agent_pos'][:,:,2:]
                 
                 done = np.all(done)
                 past_action = action
