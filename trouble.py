@@ -134,3 +134,13 @@ if not aa.agent_keypoints:
 obs = np.concatenate([obs, obs_mask.astype(obs.dtype)], axis=0)
 
 # %%
+import torch
+import dill
+checkpoint='data/outputs/2024.11.07/03.21.31_train_diffusion_unet_hybrid_pusht_image/checkpoints/latest.ckpt'
+# %%
+payload = torch.load(open(checkpoint, 'rb'), pickle_module=dill)
+# %%
+cfg = payload['cfg']
+# %%
+cfg['task']['env_runner']['_target_']
+# %%

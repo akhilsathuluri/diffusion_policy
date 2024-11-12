@@ -192,14 +192,15 @@ class PushTKeypointsRunnerTwoAgents(BaseLowdimRunner):
 
             # start rollout
             obs = env.reset()
-            print(obs)
-            print(type(obs))
-            print(obs.shape)
             
             # split the obs per agent
-            obs1 = pycopy(obs)
-            obs2 = pycopy(obs)
-            obs1 = obs1[..., :obs1.shape[-1]//2]
+            block_kps = obs[..., :obs.shape[-1]//2 - 4]
+            agent_kps = obs[..., obs.shape[-1]//2 - 4: obs.shape[-1]//2]
+            block_mask = obs[..., obs.shape[-1]//2 : -4]
+            agent_mask = obs[..., -4:]
+
+            obs1 = np.concatenate([block_kps, agent_kps[..., :2], block_mask, agent_mask[..., :2]], axis=-1)
+            obs2 = np.concatenate([block_kps, agent_kps[..., 2:], block_mask, agent_mask[..., 2:]], axis=-1)
 
             past_action = None
             policy.reset()
@@ -208,39 +209,62 @@ class PushTKeypointsRunnerTwoAgents(BaseLowdimRunner):
                 leave=False, mininterval=self.tqdm_interval_sec)
             done = False
             while not done:
-                Do = obs.shape[-1] // 2
+                Do = obs1.shape[-1] // 2
                 # create obs dict
-                np_obs_dict = {
+                np_obs_dict1 = {
                     # handle n_latency_steps by discarding the last n_latency_steps
-                    'obs': obs[...,:self.n_obs_steps,:Do].astype(np.float32),
-                    'obs_mask': obs[...,:self.n_obs_steps,Do:] > 0.5
+                    'obs': obs1[...,:self.n_obs_steps,:Do].astype(np.float32),
+                    'obs_mask': obs1[...,:self.n_obs_steps,Do:] > 0.5
                 }
-                if self.past_action and (past_action is not None):
-                    # TODO: not tested
-                    np_obs_dict['past_action'] = past_action[
-                        :,-(self.n_obs_steps-1):].astype(np.float32)
+                np_obs_dict2 = {
+                    # handle n_latency_steps by discarding the last n_latency_steps
+                    'obs': obs2[...,:self.n_obs_steps,:Do].astype(np.float32),
+                    'obs_mask': obs2[...,:self.n_obs_steps,Do:] > 0.5
+                }
+                # if self.past_action and (past_action is not None):
+                #     # TODO: not tested
+                #     np_obs_dict['past_action'] = past_action[
+                #         :,-(self.n_obs_steps-1):].astype(np.float32)
                 
                 # device transfer
-                obs_dict = dict_apply(np_obs_dict, 
+                obs_dict1 = dict_apply(np_obs_dict1, 
+                    lambda x: torch.from_numpy(x).to(
+                        device=device))
+                obs_dict2 = dict_apply(np_obs_dict2, 
                     lambda x: torch.from_numpy(x).to(
                         device=device))
 
                 # run policy
                 with torch.no_grad():
-                    action_dict = policy.predict_action(obs_dict)
+                    action_dict1 = policy.predict_action(obs_dict1)
+                    action_dict2 = policy.predict_action(obs_dict2)
 
                 # device_transfer
-                np_action_dict = dict_apply(action_dict,
+                np_action_dict1 = dict_apply(action_dict1,
+                    lambda x: x.detach().to('cpu').numpy())
+                np_action_dict2 = dict_apply(action_dict2,
                     lambda x: x.detach().to('cpu').numpy())
 
                 # handle latency_steps, we discard the first n_latency_steps actions
                 # to simulate latency
-                action = np_action_dict['action'][:,self.n_latency_steps:]
+                action1 = np_action_dict1['action'][:,self.n_latency_steps:]
+                action2 = np_action_dict2['action'][:,self.n_latency_steps:]
+                # action = np_action_dict['action'][:,self.n_latency_steps:]
+                action = np.concatenate((action1, action2), axis=2)
 
                 # step env
                 obs, reward, done, info = env.step(action)
                 done = np.all(done)
                 past_action = action
+
+                # split the obs per agent
+                block_kps = obs[..., :obs.shape[-1]//2 - 4]
+                agent_kps = obs[..., obs.shape[-1]//2 - 4: obs.shape[-1]//2]
+                block_mask = obs[..., obs.shape[-1]//2 : -4]
+                agent_mask = obs[..., -4:]
+
+                obs1 = np.concatenate([block_kps, agent_kps[..., :2], block_mask, agent_mask[..., :2]], axis=-1)
+                obs2 = np.concatenate([block_kps, agent_kps[..., 2:], block_mask, agent_mask[..., 2:]], axis=-1)
 
                 # update pbar
                 pbar.update(action.shape[1])

@@ -56,6 +56,7 @@ def main(checkpoint, output_dir, num_agents):
     # load the two agent distributed version for running the eval
     # for image obs
     # modified_env_runner = 'pusht_image_runner_two_agents.PushTImageRunnerTwoAgents'
+    # cfg['task']['env_runner']['_target_'] = cfg['task']['env_runner']['_target_'].replace('pusht_image_runner.PushTImageRunner', modified_env_runner)
     # for lowDim obs
     modified_env_runner = 'pusht_keypoints_runner_two_agents.PushTKeypointsRunnerTwoAgents'
     cfg['task']['env_runner']['_target_'] = cfg['task']['env_runner']['_target_'].replace('pusht_keypoints_runner.PushTKeypointsRunner', modified_env_runner)
