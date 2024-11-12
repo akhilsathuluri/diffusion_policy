@@ -62,6 +62,8 @@ class PushTKeypointsRunnerTwoAgents(BaseLowdimRunner):
                         legacy=legacy_test,
                         keypoint_visible_rate=keypoint_visible_rate,
                         agent_keypoints=agent_keypoints,
+                        reset_to_state=np.array([153, 256, 310, 256, 240, 240, np.pi/4+np.pi/180 * 30]), # off by 15 deg
+                        # block_cog=(256, 256),
                         **kp_kwargs
                     ),
                     video_recoder=VideoRecorder.create_h264(

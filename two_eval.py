@@ -17,6 +17,7 @@ import dill
 import wandb
 import json
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
+import logging
 
 @click.command()
 @click.option('-c', '--checkpoint', required=False)
@@ -30,7 +31,7 @@ def main(checkpoint, output_dir, num_agents):
     # checkpoint='data/outputs/2024.11.07/03.21.31_train_diffusion_unet_hybrid_pusht_image/checkpoints/latest.ckpt'
     # lowDim checkpoint given by the paper
     checkpoint = 'data/epoch=0550-test_mean_score=0.969.ckpt'
-    output_dir = 'data/pusht_eval_output_lowDim_two_active_agents'
+    output_dir = 'data/pusht_eval_output_lowDim_two_active_agents_specific'
     if os.path.exists(output_dir):
         click.confirm(f"Output path {output_dir} already exists! Overwrite?", abort=True)
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -52,14 +53,19 @@ def main(checkpoint, output_dir, num_agents):
     policy.to(device)
     policy.eval()
     
-    # run eval
-    # load the two agent distributed version for running the eval
     # for image obs
     # modified_env_runner = 'pusht_image_runner_two_agents.PushTImageRunnerTwoAgents'
     # cfg['task']['env_runner']['_target_'] = cfg['task']['env_runner']['_target_'].replace('pusht_image_runner.PushTImageRunner', modified_env_runner)
+    
     # for lowDim obs
     modified_env_runner = 'pusht_keypoints_runner_two_agents.PushTKeypointsRunnerTwoAgents'
     cfg['task']['env_runner']['_target_'] = cfg['task']['env_runner']['_target_'].replace('pusht_keypoints_runner.PushTKeypointsRunner', modified_env_runner)
+
+    # for a specific reset state
+    # fixed_reset_state=np.array([153, 256, 260, 359, 256, 256, np.pi/4+delta])
+    logging.critical('Using fixed reset state!!!')
+    cfg['task']['env_runner']['n_test'] = 10
+    # cfg['task']['env_runner']['n_test'] = 10
 
     env_runner = hydra.utils.instantiate(
         cfg.task.env_runner,

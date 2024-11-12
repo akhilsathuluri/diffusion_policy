@@ -88,7 +88,7 @@ class PushTEnvTwoAgents(gym.Env):
         seed = self._seed
         self._setup()
         if self.block_cog is not None:
-            print(self.block_cog)
+            # print(self.block_cog)
             self.block.center_of_gravity = self.block_cog
         if self.damping is not None:
             self.space.damping = self.damping
