@@ -129,7 +129,7 @@ obs_mask = np.concatenate([obs_mask, np.ones((2,), dtype=bool)])
 
 # %%
 delta = np.pi/180 * 30 # 5 deg off
-aa = PushTKeypointsEnvTwoAgents(legacy=True, render_size=96, agent_keypoints=False, draw_keypoints=False, reset_to_state=np.array([153, 256, 280, 256, 220, 240, np.pi/4+delta]))
+aa = PushTKeypointsEnvTwoAgents(legacy=True, render_size=96, agent_keypoints=False, draw_keypoints=False, reset_to_state=np.array([153, 256, 310, 256, 240, 240, np.pi/4+delta]))
 obs = aa.reset()
 bla = aa.render(mode="rgb_array")
 img = bla.astype(np.uint8)

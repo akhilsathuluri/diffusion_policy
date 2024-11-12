@@ -49,7 +49,9 @@ class PushTImageRunnerTwoAgents(BaseImageRunner):
                 VideoRecordingWrapper(
                     PushTImageEnvTwoAgents(
                         legacy=legacy_test,
-                        render_size=render_size
+                        render_size=render_size,
+                        render_action=True,
+                        reset_to_state=np.array([153, 256, 310, 256, 240, 240, np.pi/4+np.pi/180 * 30]), # off by 15 deg
                     ),
                     video_recoder=VideoRecorder.create_h264(
                         fps=fps,
