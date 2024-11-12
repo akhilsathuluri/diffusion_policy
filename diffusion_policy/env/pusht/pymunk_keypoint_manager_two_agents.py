@@ -25,7 +25,7 @@ def farthest_point_sampling(points: np.ndarray, n_points: int, init_idx: int):
     return result
 
 
-class PymunkKeypointManager:
+class PymunkKeypointManagerTwoAgents:
     def __init__(self, 
             local_keypoint_map: Dict[str, np.ndarray], 
             color_map: Optional[Dict[str, np.ndarray]]=None):
@@ -53,13 +53,16 @@ class PymunkKeypointManager:
     def create_from_pusht_env(cls, env, n_block_kps=9, n_agent_kps=3, seed=0, **kwargs):
         rng = np.random.default_rng(seed=seed)
         local_keypoint_map = dict()
-        for name in ['block','agent']:
+        for name in ['block','agent1', 'agent2']:
             self = env
             self.space = pymunk.Space()
-            if name == 'agent':
-                self.agent = obj = self.add_circle((256, 400), 15)
+            if name == 'agent1':
+                self.agent1 = obj = self.add_circle((256, 400), 15)
                 n_kps = n_agent_kps
-            else:
+            elif name == 'agent2':
+                self.agent2 = obj = self.add_circle((156, 350), 15)
+                n_kps = n_agent_kps
+            elif name == 'block':
                 self.block = obj = self.add_tee((256, 300), 0)
                 n_kps = n_block_kps
             
@@ -128,18 +131,19 @@ class PymunkKeypointManager:
 
 
 def test():
-    from diffusion_policy.environment.push_t_env import PushTEnv
+    from diffusion_policy.env.pusht.pusht_env_two_agents import PushTEnvTwoAgents
     from matplotlib import pyplot as plt
     
-    env = PushTEnv(headless=True, obs_state=False, draw_action=False)
-    kp_manager = PymunkKeypointManager.create_from_pusht_env(env=env)
+    env = PushTEnvTwoAgents()
+    kp_manager = PymunkKeypointManagerTwoAgents.create_from_pusht_env(env=env)
     env.reset()
     obj_map = {
         'block': env.block,
-        'agent': env.agent
+        'agent1': env.agent1,
+        'agent2': env.agent2
     }
 
-    obs = env.render()
+    obs = env.render(mode="rgb_array")
     img = obs.astype(np.uint8)
     kp_manager.draw_keypoints_pose(img=img, pose_map=obj_map, is_obj=True)
 

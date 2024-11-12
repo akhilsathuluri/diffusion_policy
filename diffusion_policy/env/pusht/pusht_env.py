@@ -109,14 +109,15 @@ class PushTEnv(gym.Env):
                     rs.randn() * 2 * np.pi - np.pi,  # block angle
                 ]
             )
-            distractor_state = np.array(
-                [
-                    rs.randint(100, 400),
-                    rs.randint(100, 400),
-                    rs.randn() * 2 * np.pi - np.pi,
-                ]
-            )
-        self._set_state(state, distractor_state)
+            # distractor_state = np.array(
+            #     [
+            #         rs.randint(100, 400),
+            #         rs.randint(100, 400),
+            #         rs.randn() * 2 * np.pi - np.pi,
+            #     ]
+            # )
+        # self._set_state(state, distractor_state)
+        self._set_state(state)
 
         observation = self._get_obs()
         return observation
@@ -272,14 +273,14 @@ class PushTEnv(gym.Env):
     def _handle_collision(self, arbiter, space, data):
         self.n_contact_points += len(arbiter.contact_point_set.points)
 
-    def _set_state(self, state, distractor_state):
+    def _set_state(self, state):
         if isinstance(state, np.ndarray):
             state = state.tolist()
         pos_agent = state[:2]
         pos_block = state[2:4]
         rot_block = state[4]
-        pos_distractor = distractor_state[:2]
-        rot_distractor = distractor_state[2]
+        # pos_distractor = distractor_state[:2]
+        # rot_distractor = distractor_state[2]
         self.agent.position = pos_agent
         # setting angle rotates with respect to center of mass
         # therefore will modify the geometric position
@@ -288,11 +289,11 @@ class PushTEnv(gym.Env):
         if self.legacy:
             # for compatibility with legacy data
             self.block.position = pos_block
-            self.distractor.position = pos_distractor
+            # self.distractor.position = pos_distractor
             self.block.angle = rot_block
         else:
             self.block.angle = rot_block
-            self.distractor.angle = rot_distractor
+            # self.distractor.angle = rot_distractor
             self.block.position = pos_block
 
         # Run physics to take effect
@@ -336,7 +337,7 @@ class PushTEnv(gym.Env):
         # Add agent, block, and goal zone.
         self.agent = self.add_circle((256, 400), 15)
         self.block = self.add_tee((256, 300), 0)
-        self.distractor = self.add_tee((256, 300), 0, color="LightCoral")
+        # self.distractor = self.add_tee((256, 300), 0, color="LightCoral")
         self.goal_color = pygame.Color("LightGreen")
         self.goal_pose = np.array([256, 256, np.pi / 4])  # x, y, theta (in radians)
 

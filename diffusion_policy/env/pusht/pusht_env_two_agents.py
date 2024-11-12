@@ -317,6 +317,7 @@ class PushTEnvTwoAgents(gym.Env):
 
         # Add agent, block, and goal zone.
         self.agent1 = self.add_circle((256, 400), 15)
+        # self.agent2 = self.add_circle((256, 400), 15, c='LightCoral')
         self.agent2 = self.add_circle((256, 400), 15)
         self.block = self.add_tee((256, 300), 0)
         self.goal_color = pygame.Color('LightGreen')
@@ -335,12 +336,12 @@ class PushTEnvTwoAgents(gym.Env):
         shape.color = pygame.Color('LightGray')    # https://htmlcolorcodes.com/color-names
         return shape
 
-    def add_circle(self, position, radius):
+    def add_circle(self, position, radius, c="RoyalBlue"):
         body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
         body.position = position
         body.friction = 1
         shape = pymunk.Circle(body, radius)
-        shape.color = pygame.Color('RoyalBlue')
+        shape.color = pygame.Color(c)
         self.space.add(body, shape)
         return body
 
